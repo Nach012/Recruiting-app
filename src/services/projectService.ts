@@ -6,7 +6,6 @@ import {
   deleteDoc, 
   doc, 
   query, 
-  orderBy,
   where
 } from "firebase/firestore";
 import { db } from "../config/firebase";
@@ -26,15 +25,17 @@ export const projectService = {
       const projectsRef = collection(db, COLLECTION_NAME);
       const q = query(
         projectsRef, 
-        where("ownerId", "==", userId),
-        orderBy("createdAt", "desc")
+        where("ownerId", "==", userId)
       );
       const querySnapshot = await getDocs(q);
       
-      return querySnapshot.docs.map(doc => ({
+      const projects = querySnapshot.docs.map(doc => ({
         ...doc.data(),
         id: doc.id
       })) as Project[];
+
+      // Ordenar en memoria para evitar requerir un índice compuesto en Firestore
+      return projects.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     } catch (error) {
       console.error("Error al obtener proyectos de Firestore:", error);
       throw error;
