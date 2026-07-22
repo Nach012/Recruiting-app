@@ -2,6 +2,7 @@ export type ProjectStatus = 'Abierta' | 'Cerrada';
 
 export interface Project {
   id?: string;
+  ownerId?: string; // UID of the project owner
   title: string;
   client: string;
   description: string; // Job Description

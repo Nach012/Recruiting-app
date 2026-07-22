@@ -6,7 +6,8 @@ import {
   deleteDoc, 
   doc, 
   query, 
-  orderBy 
+  orderBy,
+  where
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 import type { Project } from "../types";
@@ -18,12 +19,16 @@ const COLLECTION_NAME = "projects";
  */
 export const projectService = {
   /**
-   * Obtiene todos los proyectos de búsqueda ordenados por fecha de creación descendente.
+   * Obtiene todos los proyectos de búsqueda del usuario ordenados por fecha de creación descendente.
    */
-  async getAllProjects(): Promise<Project[]> {
+  async getAllProjects(userId: string): Promise<Project[]> {
     try {
       const projectsRef = collection(db, COLLECTION_NAME);
-      const q = query(projectsRef, orderBy("createdAt", "desc"));
+      const q = query(
+        projectsRef, 
+        where("ownerId", "==", userId),
+        orderBy("createdAt", "desc")
+      );
       const querySnapshot = await getDocs(q);
       
       return querySnapshot.docs.map(doc => ({

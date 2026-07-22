@@ -6,23 +6,25 @@ import { projectService } from '../../services/projectService';
 import { candidateService } from '../../services/candidateService';
 
 interface DashboardProps {
+  userId: string;
   onViewProject: (project: Project) => void;
   onNewProject: () => void;
   onEditProject: (project: Project) => void;
 }
 
-export function Dashboard({ onViewProject, onNewProject, onEditProject }: DashboardProps) {
+export function Dashboard({ userId, onViewProject, onNewProject, onEditProject }: DashboardProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [candidateCounts, setCandidateCounts] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [userId]);
 
   const loadData = async () => {
+    if (!userId) return;
     try {
-      const projectsData = await projectService.getAllProjects();
+      const projectsData = await projectService.getAllProjects(userId);
       setProjects(projectsData);
       
       const counts: Record<string, number> = {};

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dashboard } from './components/recruiting/Dashboard';
 import { Pipeline } from './components/recruiting/Pipeline';
 import { ProjectForm } from './components/recruiting/ProjectForm';
@@ -19,6 +19,23 @@ function AppContent() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Auto-migración para Nacho al iniciar sesión
+  useEffect(() => {
+    if (user?.uid === '4xEkxLSAWTY2Kx8cajCVLMXMq0h2') {
+      const migrated = localStorage.getItem('conecto_owner_migrated');
+      if (!migrated) {
+        import('./utils/migrateOwner').then(({ migrateMissingOwners }) => {
+          migrateMissingOwners('4xEkxLSAWTY2Kx8cajCVLMXMq0h2').then((res) => {
+            if (!res.error) {
+              localStorage.setItem('conecto_owner_migrated', 'true');
+              setRefreshKey(prev => prev + 1);
+            }
+          });
+        });
+      }
+    }
+  }, [user]);
 
   const handleLogout = () => signOut(auth);
 
@@ -68,7 +85,11 @@ function AppContent() {
       if (editingProject?.id) {
         await projectService.updateProject(editingProject.id, data);
       } else {
-        await projectService.createProject(data);
+        // Inyectar ownerId en proyectos nuevos
+        await projectService.createProject({
+          ...data,
+          ownerId: user?.uid
+        });
       }
       setShowForm(false);
       setEditingProject(null);
@@ -131,6 +152,7 @@ function AppContent() {
         {view.type === 'dashboard' ? (
           <Dashboard 
             key={refreshKey}
+            userId={user!.uid}
             onViewProject={handleViewProject} 
             onNewProject={() => {
               setEditingProject(null);
