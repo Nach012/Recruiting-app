@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Dashboard } from './components/recruiting/Dashboard';
 import { Pipeline } from './components/recruiting/Pipeline';
+import { Analytics } from './components/recruiting/Analytics';
 import { ProjectForm } from './components/recruiting/ProjectForm';
 import { projectService } from './services/projectService';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -14,7 +15,7 @@ import './App.css';
 
 function AppContent() {
   const { user, loading, error } = useAuth();
-  const [view, setView] = useState<{ type: 'dashboard' | 'pipeline', data?: Project }>({ type: 'dashboard' });
+  const [view, setView] = useState<{ type: 'dashboard' | 'pipeline' | 'analytics', data?: Project }>({ type: 'dashboard' });
   const [showForm, setShowForm] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -129,6 +130,33 @@ function AppContent() {
               </div>
             )}
           </div>
+
+          {/* TABS SELECTOR (Pestañas de Navegación) */}
+          {view.type !== 'pipeline' && (
+            <div className="flex items-center bg-white/5 p-1 rounded-xl border border-white/5">
+              <button
+                onClick={() => setView({ type: 'dashboard' })}
+                className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${
+                  view.type === 'dashboard'
+                    ? 'bg-brand-blue-primary text-white shadow-lg'
+                    : 'text-white/40 hover:text-white/80'
+                }`}
+              >
+                Búsquedas
+              </button>
+              <button
+                onClick={() => setView({ type: 'analytics' })}
+                className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${
+                  view.type === 'analytics'
+                    ? 'bg-brand-blue-primary text-white shadow-lg'
+                    : 'text-white/40 hover:text-white/80'
+                }`}
+              >
+                Estadísticas
+              </button>
+            </div>
+          )}
+
           <nav className="flex items-center gap-6">
             <div className="hidden md:flex items-center gap-2 pr-6 border-r border-white/10">
                <div className="w-8 h-8 rounded-full bg-brand-lime/10 flex items-center justify-center text-brand-lime text-xs font-bold ring-1 ring-brand-lime/20">
@@ -165,6 +193,8 @@ function AppContent() {
             project={view.data!} 
             onBack={() => setView({ type: 'dashboard' })} 
           />
+        ) : view.type === 'analytics' ? (
+          <Analytics userId={user!.uid} />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-12">
             <div className="w-24 h-24 bg-white/5 rounded-[40px] flex items-center justify-center mb-8 border border-white/10">

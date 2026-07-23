@@ -8,7 +8,8 @@ import {
   where, 
   orderBy,
   getDoc,
-  onSnapshot
+  onSnapshot,
+  deleteDoc
 } from "firebase/firestore";
 import { 
   ref, 
@@ -170,6 +171,24 @@ export const candidateService = {
       };
     } catch (error) {
       console.error("Error al subir CV a Storage:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Elimina todos los candidatos de un proyecto.
+   */
+  async deleteCandidatesByProject(projectId: string): Promise<void> {
+    try {
+      const candidates = await this.getCandidatesByProject(projectId);
+      for (const candidate of candidates) {
+        if (candidate.id) {
+          const docRef = doc(db, COLLECTION_NAME, candidate.id);
+          await deleteDoc(docRef);
+        }
+      }
+    } catch (error) {
+      console.error("Error al eliminar candidatos asociados al proyecto:", error);
       throw error;
     }
   }
