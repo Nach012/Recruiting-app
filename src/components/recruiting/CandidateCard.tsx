@@ -5,6 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Mail, Phone, FileText, MoreHorizontal } from 'lucide-react';
 import { Card } from '../ui';
 import type { Candidate, CandidateStatus } from '../../types';
+import { getWhatsAppUrl } from '../../utils/whatsapp';
 
 interface CandidateCardProps {
   candidate: Candidate;
@@ -127,10 +128,27 @@ export function CandidateCard({ candidate, onClick, onStatusChange }: CandidateC
             <Mail className="w-3 h-3 shrink-0" />
             <span className="truncate">{candidate.email}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-[11px] text-white/40">
-            <Phone className="w-3 h-3 shrink-0" />
-            <span>{candidate.phone}</span>
-          </div>
+          {candidate.phone && (() => {
+            const waUrl = getWhatsAppUrl(candidate.phone, candidate.name);
+            return waUrl ? (
+              <a
+                href={waUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                title="Abrir conversación en WhatsApp Web"
+                className="flex items-center gap-1.5 text-[11px] text-white/40 hover:text-emerald-400 transition-colors cursor-pointer group/wa"
+              >
+                <Phone className="w-3 h-3 shrink-0 text-white/40 group-hover/wa:text-emerald-400 transition-colors" />
+                <span className="group-hover/wa:underline truncate">{candidate.phone}</span>
+              </a>
+            ) : (
+              <div className="flex items-center gap-1.5 text-[11px] text-white/40">
+                <Phone className="w-3 h-3 shrink-0" />
+                <span>{candidate.phone}</span>
+              </div>
+            );
+          })()}
         </div>
 
         <div className="flex flex-wrap gap-1.5 mb-3">

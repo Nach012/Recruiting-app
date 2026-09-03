@@ -8,6 +8,7 @@ import { Button, Input } from '../ui';
 import type { Candidate, CandidateStatus } from '../../types';
 import { candidateService } from '../../services/candidateService';
 import { DiscardModal } from './DiscardModal';
+import { getWhatsAppUrl } from '../../utils/whatsapp';
 
 interface CandidateDetailsProps {
   candidate: Candidate;
@@ -306,10 +307,29 @@ export function CandidateDetails({ candidate, onClose, onUpdate }: CandidateDeta
                       <Mail className="w-3.5 h-3.5 text-brand-sky shrink-0" />
                       <span>{candidate.email}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-white/60 text-sm">
-                      <Phone className="w-3.5 h-3.5 text-brand-sky shrink-0" />
-                      <span>{candidate.phone}</span>
-                    </div>
+                    {candidate.phone && (() => {
+                      const waUrl = getWhatsAppUrl(candidate.phone, candidate.name);
+                      return waUrl ? (
+                        <a
+                          href={waUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Abrir conversación en WhatsApp Web"
+                          className="flex items-center gap-2 text-white/60 hover:text-emerald-400 text-sm group transition-colors cursor-pointer"
+                        >
+                          <Phone className="w-3.5 h-3.5 text-brand-sky group-hover:text-emerald-400 transition-colors shrink-0" />
+                          <span className="group-hover:underline underline-offset-2">{candidate.phone}</span>
+                          <span className="text-[10px] uppercase tracking-wider font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded ml-1 group-hover:bg-emerald-500/20 transition-colors">
+                            WhatsApp
+                          </span>
+                        </a>
+                      ) : (
+                        <div className="flex items-center gap-2 text-white/60 text-sm">
+                          <Phone className="w-3.5 h-3.5 text-brand-sky shrink-0" />
+                          <span>{candidate.phone}</span>
+                        </div>
+                      );
+                    })()}
                     {candidate.links?.linkedin && (
                       <a
                         href={candidate.links.linkedin}
