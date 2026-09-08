@@ -1,9 +1,17 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { Candidate } from '../types';
 
-// 1. Configuración de la API (Consolidado: gemini-3-flash-preview)
+// 1. Configuración de la API
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(API_KEY);
+
+// Cadena de modelos estables (GA - General Availability). Sin sufijo -preview.
+// Si el principal falla por alta demanda, se intenta con el siguiente.
+const MODEL_CHAIN = [
+  "gemini-2.0-flash",
+  "gemini-2.5-flash",
+  "gemini-1.5-flash",
+];
 
 // 2. Instrucciones de Sistema (Lógica de Negocio Estricta - Analista de Datos)
 const SYSTEM_INSTRUCTION = `
@@ -34,7 +42,55 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido. No incluyas explicaciones ni blo
 `;
 
 /**
- * Analiza el texto del CV usando directamente el motor consolidado: gemini-3-flash-preview.
+ * Espera N milisegundos (helper para backoff).
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Intenta analizar el CV con un modelo específico.
+ * Reintenta hasta 2 veces con espera exponencial ante errores 503/429.
+ */
+async function tryWithModel(modelName: string, prompt: string): Promise<string> {
+  const model = genAI.getGenerativeModel({
+    model: modelName,
+    systemInstruction: SYSTEM_INSTRUCTION
+  });
+
+  const MAX_RETRIES = 2;
+  let lastError: any;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+        }
+      });
+      return result.response.text();
+    } catch (error: any) {
+      lastError = error;
+      const msg = error?.message || "";
+      const isRetryable = msg.includes("503") || msg.includes("high demand") || msg.includes("overloaded");
+      
+      if (isRetryable && attempt < MAX_RETRIES) {
+        const waitMs = 1500 * (attempt + 1); // 1.5s, luego 3s
+        console.warn(`[AI] Modelo ${modelName} con alta demanda. Reintentando en ${waitMs}ms... (intento ${attempt + 1}/${MAX_RETRIES})`);
+        await sleep(waitMs);
+        continue;
+      }
+      
+      throw lastError;
+    }
+  }
+
+  throw lastError;
+}
+
+/**
+ * Analiza el texto del CV usando la cadena de modelos estables GA de Gemini.
  * Extrae los datos del candidato siguiendo los protocolos de evidencia y neutralidad.
  */
 export async function simulateCVAnalysis(
@@ -45,59 +101,63 @@ export async function simulateCVAnalysis(
     throw new Error("API Key missing");
   }
 
-  try {
-    // Motor consolidado para este entorno: gemini-3-flash-preview
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-3-flash-preview",
-      systemInstruction: SYSTEM_INSTRUCTION
-    });
+  const prompt = `Analiza este currículum y extrae la información requerida siguiendo estrictamente las reglas del sistema:\n\n${pdfText}`;
 
-    const prompt = `Analiza este currículum y extrae la información requerida siguiendo estrictamente las reglas del sistema:\n\n${pdfText}`;
+  let lastError: any;
 
-    // Generación de contenido con parámetros de respuesta JSON
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
+  // Intentar con cada modelo en la cadena hasta obtener respuesta
+  for (const modelName of MODEL_CHAIN) {
+    try {
+      console.log(`[AI] Analizando CV con modelo: ${modelName}`);
+      const responseText = await tryWithModel(modelName, prompt);
+
+      // Limpieza de seguridad (limpia bloques de markdown si los hubiera)
+      const cleanJson = responseText.replace(/```json|```/g, "").trim();
+      const data = JSON.parse(cleanJson);
+
+      // Mapeo final a la interfaz Candidate
+      return {
+        name: data.name || 'Candidato sin nombre',
+        email: data.email || '',
+        phone: data.phone || '',
+        documentId: data.documentId || '',
+        location: data.location || '',
+        links: {
+          linkedin: data.linkedin || '',
+        },
+        experience: `${data.experienceYears || 0} años`,
+        education: (data.education || []).map((edu: any) => ({
+          degree: edu.degree || '',
+          institution: edu.institution || '',
+          period: edu.years || '—'
+        })),
+        aiSummary: data.aiSummary || '',
+        expectedSalary: '',
+        interviewNotes: '',
+        tags: data.skills || [],
+        status: "PRESELECCIONADOS"
+      };
+
+    } catch (error: any) {
+      lastError = error;
+      const msg = error?.message || "";
+      const isModelUnavailable = msg.includes("503") || msg.includes("high demand") || msg.includes("overloaded");
+      
+      if (isModelUnavailable) {
+        console.warn(`[AI] Modelo ${modelName} no disponible. Pasando al siguiente...`);
+        continue; // Probar con el siguiente modelo de la cadena
       }
-    });
 
-    const responseText = result.response.text();
-    
-    // Limpieza de seguridad (limpia bloques de markdown si los hubiera)
-    const cleanJson = responseText.replace(/```json|```/g, "").trim();
-    const data = JSON.parse(cleanJson);
+      // Para errores de cuota (429) o errores críticos, no seguir intentando
+      if (msg.includes("429") || msg.includes("quota")) {
+        throw new Error("Límite de cuota excedido en Gemini. Por favor, reintentá en un minuto.");
+      }
 
-    // Mapeo final a la interfaz Candidate
-    return {
-      name: data.name || 'Candidato sin nombre',
-      email: data.email || '',
-      phone: data.phone || '',
-      documentId: data.documentId || '',
-      location: data.location || '',
-      links: {
-        linkedin: data.linkedin || '',
-      },
-      experience: `${data.experienceYears || 0} años`,
-      education: (data.education || []).map((edu: any) => ({
-        degree: edu.degree || '',
-        institution: edu.institution || '',
-        period: edu.years || '—'
-      })),
-      aiSummary: data.aiSummary || '',
-      expectedSalary: '', // Entrada manual del reclutador
-      interviewNotes: '',
-      tags: data.skills || [],
-      status: "PRESELECCIONADOS" // Estado inicial por defecto para el pipeline con sync case-sensitive
-    };
-
-  } catch (error: any) {
-    const errorMsg = error?.message || "";
-    if (errorMsg.includes("429") || errorMsg.includes("quota")) {
-      throw new Error("Límite de cuota excedido en Gemini. Por favor, reintenta en un minuto o contacta a soporte técnico.");
+      // Error desconocido: detener
+      break;
     }
-    
-    console.error("Gemini 3 Flash Preview Analysis Error:", error);
-    throw new Error("El modelo de IA no respondió adecuadamente. Revisa tu conexión o el estado de la API.");
   }
+
+  console.error("[AI] Todos los modelos fallaron:", lastError);
+  throw new Error("El servicio de IA no está disponible en este momento. Por favor, reintentá en unos segundos.");
 }
