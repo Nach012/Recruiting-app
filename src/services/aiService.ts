@@ -5,12 +5,12 @@ import type { Candidate } from '../types';
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(API_KEY);
 
-// Cadena de modelos estables (GA - General Availability). Sin sufijo -preview.
-// Si el principal falla por alta demanda, se intenta con el siguiente.
+// Cadena de modelos actuales (Google Gemini 3.x Flash).
+// Google recomienda expresamente gemini-3.6-flash en su mensaje de respuesta.
 const MODEL_CHAIN = [
-  "gemini-2.0-flash",
-  "gemini-2.5-flash",
-  "gemini-1.5-flash",
+  "gemini-3.6-flash",
+  "gemini-3.7-flash",
+  "gemini-3.8-flash",
 ];
 
 // 2. Instrucciones de Sistema (Lógica de Negocio Estricta - Analista de Datos)
@@ -141,10 +141,16 @@ export async function simulateCVAnalysis(
     } catch (error: any) {
       lastError = error;
       const msg = error?.message || "";
-      const isModelUnavailable = msg.includes("503") || msg.includes("high demand") || msg.includes("overloaded");
+      const isModelUnavailable = 
+        msg.includes("503") || 
+        msg.includes("high demand") || 
+        msg.includes("overloaded") || 
+        msg.includes("404") || 
+        msg.includes("no longer available") || 
+        msg.includes("not found");
       
       if (isModelUnavailable) {
-        console.warn(`[AI] Modelo ${modelName} no disponible. Pasando al siguiente...`);
+        console.warn(`[AI] Modelo ${modelName} no disponible o no encontrado. Pasando al siguiente en la cadena...`);
         continue; // Probar con el siguiente modelo de la cadena
       }
 
