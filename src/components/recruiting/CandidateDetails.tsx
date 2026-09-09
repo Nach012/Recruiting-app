@@ -2,16 +2,19 @@ import { useState, useEffect } from 'react';
 import { 
   X, Mail, Phone, FileText, MessageSquare, Edit3, Check, 
   ChevronDown, AlertCircle, MapPin, Link2,
-  Briefcase, GraduationCap, DollarSign, Clock, Sparkles
+  Briefcase, GraduationCap, DollarSign, Clock, Sparkles, Calendar
 } from 'lucide-react';
 import { Button, Input } from '../ui';
 import type { Candidate, CandidateStatus } from '../../types';
 import { candidateService } from '../../services/candidateService';
 import { DiscardModal } from './DiscardModal';
 import { getWhatsAppUrl } from '../../utils/whatsapp';
+import { ScheduleInterviewModal } from './ScheduleInterviewModal';
+import { useAuth } from '../../context/AuthContext';
 
 interface CandidateDetailsProps {
   candidate: Candidate;
+  projectTitle?: string;
   onClose: () => void;
   onUpdate: () => void;
 }
@@ -27,9 +30,11 @@ const COLUMNS: CandidateStatus[] = [
   'DESCARTADOS'
 ];
 
-export function CandidateDetails({ candidate, onClose, onUpdate }: CandidateDetailsProps) {
+export function CandidateDetails({ candidate, projectTitle = 'Búsqueda Activa', onClose, onUpdate }: CandidateDetailsProps) {
+  const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<CandidateStatus | null>(null);
   const [editedData, setEditedData] = useState({
     name: candidate.name,
@@ -178,9 +183,19 @@ export function CandidateDetails({ candidate, onClose, onUpdate }: CandidateDeta
               </div>
             </div>
           </div>
-          <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
-            ID: {candidate.id?.slice(-6).toUpperCase()}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowScheduleModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1 bg-brand-sky/10 hover:bg-brand-sky/20 border border-brand-sky/30 rounded-full text-brand-sky text-xs font-bold transition-all shadow-sm group"
+              title="Agendar entrevista en Google Calendar"
+            >
+              <Calendar className="w-3.5 h-3.5 text-brand-sky group-hover:scale-110 transition-transform" />
+              <span>Agendar</span>
+            </button>
+            <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
+              ID: {candidate.id?.slice(-6).toUpperCase()}
+            </span>
+          </div>
         </div>
 
         {/* ── Body ── */}
@@ -402,6 +417,14 @@ export function CandidateDetails({ candidate, onClose, onUpdate }: CandidateDeta
             </>
           ) : (
             <>
+              <Button 
+                variant="outline" 
+                className="flex-1 !border-brand-sky/30 text-brand-sky hover:bg-brand-sky/10" 
+                icon={Calendar} 
+                onClick={() => setShowScheduleModal(true)}
+              >
+                Agendar
+              </Button>
               <Button variant="outline" className="flex-1" icon={Edit3} onClick={() => setIsEditing(true)}>Editar Ficha</Button>
               <div className="flex-1 relative">
                 <Button variant="secondary" className="w-full" icon={ChevronDown}>Mover Etapa</Button>
@@ -420,6 +443,15 @@ export function CandidateDetails({ candidate, onClose, onUpdate }: CandidateDeta
 
       {showDiscardModal && (
         <DiscardModal onClose={() => setShowDiscardModal(false)} onConfirm={handleConfirmDiscard} />
+      )}
+
+      {showScheduleModal && (
+        <ScheduleInterviewModal
+          candidate={candidate}
+          projectTitle={projectTitle}
+          defaultRecruiterName={user?.displayName || (user?.email ? user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1) : 'Ignacio')}
+          onClose={() => setShowScheduleModal(false)}
+        />
       )}
     </div>
   );

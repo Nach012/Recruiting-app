@@ -312,6 +312,7 @@ export function Pipeline({ project, onBack }: PipelineProps) {
       {selectedCandidate && (
         <CandidateDetails 
           candidate={selectedCandidate} 
+          projectTitle={project.title}
           onClose={() => setSelectedCandidate(null)} 
           onUpdate={() => setSelectedCandidate(null)}
         />
