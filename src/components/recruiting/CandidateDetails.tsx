@@ -231,6 +231,30 @@ export function CandidateDetails({ candidate, projectTitle = 'Búsqueda Activa',
                 </p>
               </section>
 
+              {/* Banner de Entrevista si está en etapa de entrevista */}
+              {(candidate.status === 'ENTREVISTA (CONSULTORA)' || candidate.status === 'ENTREVISTA TÉCNICA (CLIENTE)') && (
+                <div className="p-4 bg-gradient-to-r from-brand-sky/15 to-brand-blue-primary/10 border border-brand-sky/30 rounded-2xl flex items-center justify-between gap-3 shadow-lg shadow-brand-sky/5 animate-in fade-in duration-300">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-brand-sky/20 rounded-xl text-brand-sky">
+                      <Calendar className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">Entrevista Pendiente</h4>
+                      <p className="text-[11px] text-white/50">Coordiná y enviá la invitación de Google Meet</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="!bg-brand-sky !text-brand-blue-dark font-bold whitespace-nowrap shadow-md"
+                    icon={Calendar}
+                    onClick={() => setShowScheduleModal(true)}
+                  >
+                    Agendar
+                  </Button>
+                </div>
+              )}
+
               {/* Professional Profile (experience – read-only) + Salary */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <section className="space-y-2">
@@ -357,6 +381,14 @@ export function CandidateDetails({ candidate, projectTitle = 'Búsqueda Activa',
                         <span className="truncate text-xs underline underline-offset-2">LinkedIn</span>
                       </a>
                     )}
+                    <button
+                      onClick={() => setShowScheduleModal(true)}
+                      className="flex items-center gap-2 text-brand-sky hover:text-white text-sm group transition-colors cursor-pointer pt-0.5 text-left"
+                      title="Agendar entrevista en Google Calendar"
+                    >
+                      <Calendar className="w-3.5 h-3.5 text-brand-sky group-hover:scale-110 transition-transform shrink-0" />
+                      <span className="text-xs font-bold underline underline-offset-2">Agendar en Google Calendar</span>
+                    </button>
                   </div>
                 </section>
                 <section className="space-y-2">
