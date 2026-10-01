@@ -1,0 +1,9 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Solo usuarios autenticados de Conectō pueden subir o descargar CVs
+    match /cvs/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
