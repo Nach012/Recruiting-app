@@ -32,6 +32,7 @@ export function CandidateForm({
   const [createdCount, setCreatedCount] = useState(0);
   const [skippedCount, setSkippedCount] = useState(0);
   const [duplicateCount, setDuplicateCount] = useState(0);
+  const [failedCount, setFailedCount] = useState(0);
 
   // Escape key handler
   useEffect(() => {
@@ -58,61 +59,66 @@ export function CandidateForm({
       setSkippedCount(invalidCount);
       setCreatedCount(0);
       setDuplicateCount(0);
+      setFailedCount(0);
       setProcessedCount(0);
       setFlowState('processing');
       setErrorMsg('');
 
-      try {
-        for (let i = 0; i < validFiles.length; i++) {
-          const file = validFiles[i];
-          setProcessedCount(i + 1);
-          setCurrentFileName(file.name);
+      for (let i = 0; i < validFiles.length; i++) {
+        const file = validFiles[i];
+        setProcessedCount(i + 1);
+        setCurrentFileName(file.name);
 
+        try {
           // Step 1 — extract text
           const pdfText = await extractTextFromPDF(file);
+          if (!pdfText || !pdfText.trim()) {
+            throw new Error('El PDF no contiene texto legible.');
+          }
 
-          // Step 2 — AI analysis (mock)
+          // Step 2 — AI analysis
           const aiResult = await simulateCVAnalysis(pdfText);
 
-          try {
-            // Step 3 — Upload binary to Firebase Storage
-            const uploadResult = await candidateService.uploadCV(file, aiResult.name || 'Candidato');
+          // Step 3 — Upload binary to Firebase Storage
+          const uploadResult = await candidateService.uploadCV(file, aiResult.name || 'Candidato');
 
-            // Step 4 — Persist candidate to Firestore with final reference
-            await candidateService.createCandidate({
-              projectId: projectId, // Mandatorio para vinculación Pipeline
-              documentId: aiResult.documentId,
-              name: aiResult.name || 'Candidato sin nombre',
-              email: aiResult.email || '',
-              phone: aiResult.phone || '',
-              status: initialStatus,
-              tags: aiResult.tags || [],
-              location: aiResult.location,
-              links: aiResult.links,
-              experience: aiResult.experience,
-              education: aiResult.education,
-              aiSummary: aiResult.aiSummary,
-              expectedSalary: aiResult.expectedSalary,
-              interviewNotes: aiResult.interviewNotes || '',
-              cvUrl: uploadResult.url,   // URL real de Storage
-              cvPath: uploadResult.path, // Path real de Storage
-            });
-            setCreatedCount(prev => prev + 1);
-          } catch (e: any) {
-            if (e.message === 'DUPLICATE_DOCUMENT') {
-              setDuplicateCount(prev => prev + 1);
-            } else {
-              throw e;
-            }
+          // Step 4 — Persist candidate to Firestore with final reference
+          await candidateService.createCandidate({
+            projectId: projectId, // Mandatorio para vinculación Pipeline
+            documentId: aiResult.documentId,
+            name: aiResult.name || 'Candidato sin nombre',
+            email: aiResult.email || '',
+            phone: aiResult.phone || '',
+            status: initialStatus,
+            tags: aiResult.tags || [],
+            location: aiResult.location,
+            links: aiResult.links,
+            experience: aiResult.experience,
+            education: aiResult.education,
+            aiSummary: aiResult.aiSummary,
+            expectedSalary: aiResult.expectedSalary,
+            interviewNotes: aiResult.interviewNotes || '',
+            cvUrl: uploadResult.url,   // URL real de Storage
+            cvPath: uploadResult.path, // Path real de Storage
+          });
+
+          setCreatedCount(prev => prev + 1);
+        } catch (e: any) {
+          if (e.message === 'DUPLICATE_DOCUMENT') {
+            setDuplicateCount(prev => prev + 1);
+          } else {
+            console.error(`Error procesando archivo ${file.name}:`, e);
+            setFailedCount(prev => prev + 1);
           }
         }
 
-        setFlowState('done');
-      } catch (err) {
-        console.error('Error in CV processing pipeline:', err);
-        setErrorMsg('Ocurrió un error procesando los archivos. Intentá de nuevo.');
-        setFlowState('error');
+        // Pausa de cortesía entre archivos para evitar saturación de red/burst rate limit
+        if (i < validFiles.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 350));
+        }
       }
+
+      setFlowState('done');
     },
     [projectId, initialStatus]
   );
@@ -254,6 +260,19 @@ export function CandidateForm({
                 </div>
                 <span className="text-xl font-bold text-white/20">{skippedCount}</span>
               </div>
+
+              {/* CON ERROR */}
+              {failedCount > 0 && (
+                <div className="flex items-center justify-between p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center text-red-400">
+                      <AlertCircle className="w-5 h-5" />
+                    </div>
+                    <span className="text-red-300 font-medium text-sm">Con error (PDF no legible o fallo)</span>
+                  </div>
+                  <span className="text-xl font-bold text-red-400">{failedCount}</span>
+                </div>
+              )}
             </div>
 
             <Button 
