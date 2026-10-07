@@ -67,8 +67,16 @@ async function tryWithModel(modelName: string, prompt: string): Promise<string> 
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
           responseMimeType: "application/json",
-        }
+          temperature: 0.1,
+          maxOutputTokens: 1000,
+          thinkingConfig: {
+            thinkingBudget: 0
+          }
+        } as any
       });
+      if (result.response.usageMetadata) {
+        console.log(`[AI] Consumo de tokens para ${modelName}:`, result.response.usageMetadata);
+      }
       return result.response.text();
     } catch (error: any) {
       lastError = error;
